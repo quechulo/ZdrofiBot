@@ -1,0 +1,17 @@
+{
+  "name": "zdrofit-registration-bot",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Local scheduler + dashboard that registers for zdrofit.pl classes the moment registration opens.",
+  "main": "index.mjs",
+  "scripts": {
+    "start": "node index.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "playwright": "^1.63.0"
+  }
+}
