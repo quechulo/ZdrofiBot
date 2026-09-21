@@ -379,6 +379,7 @@ async function reconcilePendingQueueWithActivities(expandedActivities) {
       if (x.status === "pending" && !desiredKeys.has(entryKey(x))) {
         x.status = "cancelled";
         x.cancelledAt = createdAt;
+        cancelledEntryKeys.add(entryKey(x));
         cancelled++;
       }
     }
@@ -681,17 +682,21 @@ async function submitEnrollment(http, activity, token) {
 // ---- Per-entry lifecycle: discover -> warm up -> fire --------------------
 
 /**
- * Re-reads pending.json to check whether this entry has been changed away
- * from "pending" since its lifecycle started - e.g. the dashboard's
- * reconciliation marked it "cancelled" because it was removed from
- * activities.json. A running lifecycle doesn't otherwise notice an external
- * edit like that, so long-lived phases (discovery's retry loop, and the
- * fire step itself) check this explicitly.
+ * Checks whether this entry has been cancelled since its lifecycle started
+ * - e.g. the dashboard's reconciliation marked it "cancelled" because it
+ * was removed from activities.json. A running lifecycle doesn't otherwise
+ * notice an external edit like that, so long-lived phases (discovery's
+ * retry loop, and the fire step itself) check this explicitly.
+ *
+ * Backed by an in-memory Set (cancelledEntryKeys, populated directly by
+ * reconcilePendingQueueWithActivities below) rather than a disk read -
+ * scheduler and dashboard both run in this one process, so there's no need
+ * to round-trip through pending.json to learn about a cancellation, and
+ * doing so put an unpredictable-latency disk read right on the critical
+ * path between waking up and actually firing.
  */
-async function isEntryCancelled(entry) {
-  const queue = await loadPendingQueue();
-  const found = queue.find((x) => entryKey(x) === entryKey(entry));
-  return !found || found.status !== "pending";
+function isEntryCancelled(entry) {
+  return cancelledEntryKeys.has(entryKey(entry));
 }
 
 /**
@@ -716,7 +721,7 @@ async function discoveryLoop(entry, triggerTime) {
     await waitUntilPrecise(leadStart);
   }
   while (!entry.id && Date.now() < triggerTime) {
-    if (await isEntryCancelled(entry)) {
+    if (isEntryCancelled(entry)) {
       log(`Stopping discovery for ${entry.targetDatetime}: entry was cancelled.`);
       return;
     }
@@ -794,7 +799,15 @@ function alertSessionBlockedFire(entry, reason) {
  * waiting-for-login and move on so a fire is never stuck.
  */
 async function fireEntry(entry, warm = {}) {
-  if (await isEntryCancelled(entry)) {
+  // Captured before the cancellation check below (which is now an in-memory
+  // Set lookup, not a disk read - see isEntryCancelled's comment) so this
+  // purely reflects waitUntilPrecise's wake accuracy, not anything after it.
+  const firedAt = Date.now();
+  const targetMs = new Date(entry.triggerAt).getTime();
+  const latencyMs = firedAt - targetMs;
+  const elapsedSinceTrigger = () => Date.now() - targetMs;
+
+  if (isEntryCancelled(entry)) {
     log(`Skipping fire for ${entry.targetDatetime}: entry was cancelled before trigger.`);
     if (warm.http) {
       try {
@@ -806,10 +819,10 @@ async function fireEntry(entry, warm = {}) {
     return;
   }
 
-  const firedAt = Date.now();
-  const targetMs = new Date(entry.triggerAt).getTime();
-  const latencyMs = firedAt - targetMs;
-  log(`Firing enrollment for ${entry.targetDatetime} (id=${entry.id || "(unknown)"}), ${latencyMs}ms after trigger.`);
+  log(
+    `Firing enrollment for ${entry.targetDatetime} (id=${entry.id || "(unknown)"}), ${latencyMs}ms after trigger, ` +
+      `${warm.http ? "using a pre-warmed connection" : "using a fresh connection (no warm-up)"}.`
+  );
 
   let http = warm.http;
   let token = warm.warmToken || null;
@@ -820,19 +833,21 @@ async function fireEntry(entry, warm = {}) {
     if (!sessionOk) {
       log(`Session invalid at fire time for ${entry.targetDatetime}; not blocking, marking waiting-for-login.`);
       alertSessionBlockedFire(entry, "session was invalid at fire time");
-      await updateEntry(entry, { status: "waiting-for-login", latencyMs });
+      await updateEntry(entry, { status: "waiting-for-login", latencyMs, completedLatencyMs: elapsedSinceTrigger() });
       await http.dispose();
       return;
     }
   }
 
   if (!entry.id) {
+    const discoveryStarted = Date.now();
     const res = await gatherActivityIdWithPlaywright(entry, { headless: true });
+    log(`Discovery at fire time for ${entry.targetDatetime} took ${Date.now() - discoveryStarted}ms.`);
     if (res && res.id) {
       await updateEntry(entry, { id: res.id });
     } else {
       log(`Discovery failed at fire time for ${entry.targetDatetime}: ${res && res.reason}`);
-      await updateEntry(entry, { status: "failed-discovery", latencyMs });
+      await updateEntry(entry, { status: "failed-discovery", latencyMs, completedLatencyMs: elapsedSinceTrigger() });
       await http.dispose();
       return;
     }
@@ -843,7 +858,7 @@ async function fireEntry(entry, warm = {}) {
     if (detectUnauthorized(page.url, page.status, page.html)) {
       log(`Unauthorized fetching registration page at fire time for ${entry.targetDatetime}.`);
       alertSessionBlockedFire(entry, "session was rejected while fetching the registration page");
-      await updateEntry(entry, { status: "waiting-for-login", latencyMs });
+      await updateEntry(entry, { status: "waiting-for-login", latencyMs, completedLatencyMs: elapsedSinceTrigger() });
       await http.dispose();
       return;
     }
@@ -851,7 +866,12 @@ async function fireEntry(entry, warm = {}) {
   }
 
   if (!token) {
-    await updateEntry(entry, { status: "failed-token", attempts: (entry.attempts || 0) + 1, latencyMs });
+    await updateEntry(entry, {
+      status: "failed-token",
+      attempts: (entry.attempts || 0) + 1,
+      latencyMs,
+      completedLatencyMs: elapsedSinceTrigger(),
+    });
     await http.dispose();
     return;
   }
@@ -861,14 +881,18 @@ async function fireEntry(entry, warm = {}) {
   if (detectUnauthorized(resp.url, resp.status, resp.html)) {
     log(`Unauthorized during submit for ${entry.targetDatetime}.`);
     alertSessionBlockedFire(entry, "session was rejected while submitting the registration");
-    await updateEntry(entry, { status: "waiting-for-login", latencyMs });
+    await updateEntry(entry, { status: "waiting-for-login", latencyMs, completedLatencyMs: elapsedSinceTrigger() });
     await http.dispose();
     return;
   }
 
   if (!isEnrollSuccess(resp.html, entry.id)) {
     // One retry with a freshly fetched token, in case the warm/original one
-    // was stale or single-use.
+    // was stale or single-use. This doubles the remaining network round
+    // trips, so it's logged explicitly - it's a plausible source of extra
+    // latency in its own right, especially if the server is slow right at
+    // the trigger moment because everyone else is hitting it too.
+    log(`First submission for ${entry.targetDatetime} didn't look like success - retrying with a fresh token.`);
     const page2 = await fetchRegistrationPage(http, entry);
     const token2 = parseToken(page2.html);
     if (token2) {
@@ -876,16 +900,19 @@ async function fireEntry(entry, warm = {}) {
     }
   }
 
+  const completedLatencyMs = elapsedSinceTrigger();
+
   if (isEnrollSuccess(resp.html, entry.id)) {
-    await updateEntry(entry, { status: "done", doneAt: new Date().toISOString(), latencyMs });
-    log(`Registered for ${entry.targetDatetime} (${latencyMs}ms after trigger).`);
+    await updateEntry(entry, { status: "done", doneAt: new Date().toISOString(), latencyMs, completedLatencyMs });
+    log(`Registered for ${entry.targetDatetime}: woke ${latencyMs}ms after trigger, confirmed ${completedLatencyMs}ms after trigger.`);
   } else {
     await updateEntry(entry, {
       status: "failed",
       resultSnippet: resp.html.slice(0, 500).replace(/\s+/g, " "),
       latencyMs,
+      completedLatencyMs,
     });
-    log(`Failed to register for ${entry.targetDatetime}.`);
+    log(`Failed to register for ${entry.targetDatetime}: woke ${latencyMs}ms after trigger, gave up ${completedLatencyMs}ms after trigger.`);
   }
 
   await http.dispose();
@@ -913,6 +940,11 @@ async function runEntryLifecycle(entry) {
 // ---- Scheduler: independent per-entry timers + catch-up heartbeat -------
 
 const scheduled = new Set();
+// Populated by reconcilePendingQueueWithActivities when a pending entry gets
+// cancelled; read synchronously by isEntryCancelled(). Small and bounded in
+// practice (one key per cancellation over the process's lifetime, at this
+// tool's scale) so it's never worth cleaning up.
+const cancelledEntryKeys = new Set();
 
 function scheduleEntry(entry) {
   const key = entryKey(entry);
