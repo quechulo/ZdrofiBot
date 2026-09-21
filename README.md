@@ -1,0 +1,2 @@
+# ZdrofiBot
+Automatic activities registration
