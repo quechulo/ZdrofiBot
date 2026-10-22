@@ -611,9 +611,14 @@ async function gatherActivityIdWithPlaywright(activity, options = {}) {
       (nodes) =>
         nodes.map((n) => {
           const timeEl = n.querySelector("time[datetime]");
+          const activityEl = n.querySelector("a.activity");
           return {
             id: n.getAttribute("data-id"),
+            // data-activity is a numeric catalogue ID; the visible class
+            // name used by the dashboard configuration is in a.activity.
             activity: n.getAttribute("data-activity"),
+            activityName: activityEl ? activityEl.textContent.replace(/\s+/g, " ").trim() : null,
+            activityHref: activityEl ? activityEl.getAttribute("href") : null,
             datetime: timeEl ? timeEl.getAttribute("datetime") : null,
             outer: n.outerHTML.slice(0, 200),
           };
@@ -628,8 +633,11 @@ async function gatherActivityIdWithPlaywright(activity, options = {}) {
     for (const c of candidates) {
       if (!c.datetime) continue;
       const norm = c.datetime.replace(/\s+/g, " ").trim();
-      const act = (c.activity || "").toLowerCase();
-      if (norm === target && (keyword === "" || act.includes(keyword))) {
+      const activityId = (c.activity || "").toLowerCase();
+      const activityName = (c.activityName || "").toLowerCase();
+      const matchesKeyword =
+        keyword === "" || activityName.includes(keyword) || activityId.includes(keyword);
+      if (norm === target && matchesKeyword) {
         debug.found = c;
         await fs.writeFile(path.join(STORAGE_DIR, "last-gather.json"), JSON.stringify(debug, null, 2), "utf8");
         await context.storageState({ path: STORAGE_STATE_PATH });
