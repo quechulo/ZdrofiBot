@@ -1,0 +1,8 @@
+packages:
+  - apps/*
+  - libs/*
+  - test/*
+
+# esbuild ships prebuilt binaries, so drizzle-kit doesn't need its install script.
+allowBuilds:
+  esbuild: false

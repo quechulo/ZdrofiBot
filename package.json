@@ -1,17 +1,31 @@
 {
-  "name": "zdrofit-registration-bot",
+  "name": "zdrofibot",
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Local scheduler + dashboard that registers for zdrofit.pl classes the moment registration opens.",
+  "description": "Auto-registration service for zdrofit.pl classes. index.mjs is the legacy MVP until cutover.",
   "main": "index.mjs",
   "scripts": {
-    "start": "node index.mjs"
+    "start": "node index.mjs",
+    "build": "pnpm -r --filter \"./libs/*\" --filter \"./apps/*\" run build",
+    "typecheck": "pnpm -r run typecheck",
+    "lint": "oxlint apps libs test",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "db:generate": "pnpm --filter @zdrofibot/db run generate"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=24"
   },
   "dependencies": {
-    "playwright": "^1.63.0"
+    "playwright": "~1.63.0"
+  },
+  "packageManager": "pnpm@12.18.0",
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "oxlint": "^1.91.0",
+    "typescript": "~6.0.3",
+    "vite": "^8.3.6",
+    "vitest": "^4.1.12"
   }
 }

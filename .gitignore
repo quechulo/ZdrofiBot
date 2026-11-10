@@ -2,3 +2,9 @@ node_modules
 package-lock.json
 .state
 activities.json
+recon/.out
+dist
+*.tsbuildinfo
+coverage
+.env
+.env.*
