@@ -35,10 +35,11 @@ const main = (html) => html.match(/<main\b[\s\S]*?<\/main>/)?.[0] ?? "";
 const loggedIn = (body) =>
   `<!doctype html><html lang="pl"><body><header><a href="/logout">Wyloguj się</a></header>${scrub(body)}</body></html>\n`;
 
-// The first snapshot is anonymous, so it has the login form. The latest one was
-// taken in the daytime, so it has classes in every state.
+// The first snapshot is anonymous, so it has the login form. The pinned one was
+// taken in the daytime, so it has classes in every state. Pinned, so later
+// probe runs can't silently change what the tests see.
 const anonymous = read(/-schedule\.html$/, (found) => found[0]);
-const schedule = read(/-schedule\.html$/, (found) => found.at(-1));
+const schedule = read(/1793965004911-schedule\.html$/);
 const items = schedule.match(/<li id="schedule-item-[\s\S]*?<\/li>/g);
 const pickItem = (test, count = 2) => items.filter(test).slice(0, count);
 const chosen = [
@@ -54,11 +55,12 @@ const files = {
   "class-open.html": loggedIn(main(read(/token-2546335a/))),
   "class-not-open.html": loggedIn(main(read(/token-2558765a/))),
   "class-booked.html": loggedIn(main(read(/book-2544368/))),
+  "post-not-open.html": loggedIn(main(read(/book-2558759/))),
   "class-unregister.html": loggedIn(main(read(/account-map/, (found) =>
     found.find((name) => fs.readFileSync(path.join(OUT, "pages", name), "utf8").includes("schedule_unregister_form"))))),
 };
 
-const forbidden = [/@gmail/i, /user_email/i, /c2c75173/, /\b[\w.+-]+@[\w-]+\.[a-z]{2,}\b/i, /f04ad459/, /Dąbrowa|Czołak|Przybyszewska/];
+const forbidden = [/@gmail/i, /user_email/i, /c2c75173/, /\b[\w.+-]+@[\w-]+\.[a-z]{2,}\b/i, /f04ad459/, /Dąbrowa|Czołak|Przybyszewska|Tkachenko/];
 const realTokens = new Set();
 for (const name of pages) {
   const html = fs.readFileSync(path.join(OUT, "pages", name), "utf8");

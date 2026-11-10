@@ -30,6 +30,7 @@ Taken from one anonymous request to the public schedule on 2026-11-06.
 | Booking state | A session's class page can lag by up to about 12 min after a change made elsewhere. Its own POST shows at once |
 | Sessions | A new web login doesn't end an existing session. Tokens are per session and per form |
 | Idle expiry | Session `a` died after at most about 4 days idle. A logged-out page still offers a token, so `book-probe` now refuses to POST unless logged in |
+| R5 (not open) | Refused with "Za wcześnie by zarezerwować" and nothing booked. It still took 5.2 s |
 | R8 (partly) | The site sits behind CloudFront. Requests take 0.75–1.25 s, nearly all server time. A cold DNS lookup can add about 3 s on this Mac |
 
 ## Your runbook

@@ -11,10 +11,11 @@ const FIXTURE = {
   schedule: fixture("schedule.html"),
   open: fixture("class-open.html"),
   notOpen: fixture("class-not-open.html"),
+  postNotOpen: fixture("post-not-open.html"),
   booked: fixture("class-booked.html"),
   unregister: fixture("class-unregister.html"),
 };
-const FIXTURE_IDS = { open: 2546335, notOpen: 2558765, booked: 2544368, unregister: 2544368 };
+const FIXTURE_IDS = { open: 2546335, notOpen: 2558765, postNotOpen: 2558759, booked: 2544368, unregister: 2544368 };
 const LOGIN_FORM = FIXTURE.schedule.match(/<form\b[^>]*name="member_login_form"[\s\S]*?<\/form>/)?.[0] ?? "";
 const LOGGED_OUT_PAGE = `<!doctype html><html lang="pl"><body>${LOGIN_FORM}</body></html>`;
 const CLUB = "warszawa-zoliborz-szamocka";
@@ -74,7 +75,8 @@ function personalise(html: string, fixtureId: number, cls: MockClass): string {
 
 /**
  * A stand-in for the portal, rendering the real markup saved in fixtures/.
- * The responses to a POST on a not-open or full class are guesses until R5.
+ * A POST on a not-open class returns the real refusal. The response for a full
+ * class hasn't been seen yet, so that one is a guess.
  */
 export class MockPortal {
   readonly requests: LoggedRequest[] = [];
@@ -226,6 +228,9 @@ export class MockPortal {
       cls.seatsTaken++;
     }
     if (this.lostResponses.has(cls.id)) return;
+    if (!match[2] && !session.booked.has(cls.id) && !this.isOpen(cls)) {
+      return send(personalise(FIXTURE.postNotOpen, FIXTURE_IDS.postNotOpen, cls));
+    }
     send(this.classPage(cls, session));
   }
 }

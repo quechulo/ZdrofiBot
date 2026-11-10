@@ -102,9 +102,9 @@ describe("register", () => {
     expect(classes.open.seatsTaken).toBe(4);
   });
 
-  it("doesn't claim success for a class that isn't open", async () => {
+  it("reports a class that isn't open yet", async () => {
     const result = await client().register(CLUB, 103, await registerToken(101));
-    expect(result.outcome).toBe("unknown");
+    expect(result.outcome).toBe("not-open");
     expect(portal.isBooked(SESSION, 103)).toBe(false);
   });
 

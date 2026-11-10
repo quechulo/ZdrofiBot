@@ -113,6 +113,10 @@ describe("classifyRegistration", () => {
     expect(classifyRegistration(page(html), 2546335)).toBe("unknown");
   });
 
+  it("recognises the real refusal for a class that isn't open yet", () => {
+    expect(classifyRegistration(page(fixture("post-not-open.html")), 2558759)).toBe("not-open");
+  });
+
   it("reports a lost session separately", () => {
     expect(classifyRegistration(page(fixture("schedule.html")), BOOKED_ID)).toBe("session-lost");
   });

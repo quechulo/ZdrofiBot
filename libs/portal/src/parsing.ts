@@ -92,19 +92,24 @@ export function parseClassPage(page: PageLike, id: number): ClassPage {
   };
 }
 
-export type RegistrationOutcome = "booked" | "session-lost" | "unknown";
+export type RegistrationOutcome = "booked" | "not-open" | "closed" | "session-lost" | "unknown";
 
 /**
  * Strict on purpose: the MVP accepted "Zapisano" anywhere on the page. "booked"
  * also covers "already booked", because the portal returns the same page for
- * both. Anything else stays "unknown", and the caller must verify it.
+ * both. "not-open" is the real refusal: the class page marked
+ * item-registration-early, "Za wcześnie by zarezerwować". A full class's
+ * response is still unseen, so it stays "unknown", and the caller must verify.
  */
 export function classifyRegistration(page: PageLike, id: number): RegistrationOutcome {
   const $ = cheerio.load(page.html);
   const item = $(`#schedule-item-${id}`);
   const confirmed = $(`#a${id}`).text().includes("Zapisano");
   if (item.hasClass("item-member-registered") && confirmed) return "booked";
-  return classifySession(page) === "logged-out" ? "session-lost" : "unknown";
+  if (classifySession(page) === "logged-out") return "session-lost";
+  if (item.hasClass("item-registration-early")) return "not-open";
+  if (item.hasClass("item-registration-late")) return "closed";
+  return "unknown";
 }
 
 export function classifyUnregistration(page: PageLike, id: number): "cancelled" | "session-lost" | "unknown" {
