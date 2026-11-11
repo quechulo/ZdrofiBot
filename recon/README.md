@@ -32,6 +32,8 @@ Taken from one anonymous request to the public schedule on 2026-11-06.
 | Idle expiry | Session `a` died after at most about 4 days idle. A logged-out page still offers a token, so `book-probe` now refuses to POST unless logged in |
 | R5 (not open) | Refused with "Za wcześnie by zarezerwować" and nothing booked. It still took 5.2 s |
 | R8 (partly) | The site sits behind CloudFront. Requests take 0.75–1.25 s, nearly all server time. A cold DNS lookup can add about 3 s on this Mac |
+| R8 (Google Cloud, 2026-11-10) | Not blocked: anonymous and logged-in requests work from a Warsaw VM, with DNS about 2 ms and the same server time. The session stayed valid for at least 78 min of 15-min polls, and the token core was stable |
+| R3 (Google Cloud) | 1 of 1 login challenged, about 5 image rounds, 198 s. At home, with equally fresh profiles: 2 of 3 challenged, 47–67 s |
 
 ## Your runbook
 
@@ -106,10 +108,10 @@ The last command shows a login browser at <http://localhost:6080/vnc.html> on yo
 
 ```sh
 node recon/token-probe.mjs gce --club warszawa-zoliborz-szamocka --id <open id>
-timeout 2h node recon/session-watch.mjs gce --every 15
+nohup timeout 2h node recon/session-watch.mjs gce --every 15 > watch.log 2>&1 &
 ```
 
-Print the results on the VM with `cat recon/.out/*.jsonl`, and paste them here. They hold fingerprints, not cookie values. Then, back on your Mac:
+`nohup` keeps the watch running if SSH disconnects. You can log out and reconnect later. When it's done, print the results on the VM with `cat recon/.out/*.jsonl`, and paste them here. They hold fingerprints, not cookie values. Then, back on your Mac:
 
 ```sh
 sh recon/gce/down.sh <gcp-project>
