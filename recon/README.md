@@ -33,6 +33,7 @@ Taken from one anonymous request to the public schedule on 2026-11-06.
 | R5 (not open) | Refused with "Za wcześnie by zarezerwować" and nothing booked. It still took 5.2 s |
 | R8 (partly) | The site sits behind CloudFront. Requests take 0.75–1.25 s, nearly all server time. A cold DNS lookup can add about 3 s on this Mac |
 | R8 (Google Cloud, 2026-11-10) | Not blocked: anonymous and logged-in requests work from a Warsaw VM, with DNS about 2 ms and the same server time. The session stayed valid for at least 78 min of 15-min polls, and the token core was stable |
+| R1 (Google Cloud) | Polled every 30 min, the VM session was still valid at 8h57m. The watch was then killed, probably by a VM restart or out-of-memory kill, and the VM was deleted before the cause could be checked. Lifetime beyond about 11h with keep-alive is still unknown |
 | R3 (Google Cloud) | 1 of 1 login challenged, about 5 image rounds, 198 s. At home, with equally fresh profiles: 2 of 3 challenged, 47–67 s |
 
 ## Your runbook

@@ -84,6 +84,8 @@ export class MockPortal {
   postDelayMs = 0;
   /** POSTs to these classes take effect, but the response never arrives. */
   readonly lostResponses = new Set<number>();
+  /** Runs when a POST arrives, before it is handled. */
+  onPost: ((path: string) => void | Promise<void>) | undefined;
 
   private readonly classes = new Map<number, MockClass>();
   private readonly sessions = new Map<string, MockSession>();
@@ -186,6 +188,7 @@ export class MockPortal {
     };
 
     if (request.method === "POST") {
+      await this.onPost?.(path);
       const form = new URLSearchParams(Buffer.concat(chunks).toString());
       return this.handlePost(path, form, session, send);
     }

@@ -222,12 +222,37 @@ importers:
       '@nestjs/core':
         specifier: ^12.3.3
         version: 12.3.3(@nestjs/common@12.3.3(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/platform-express@12.3.3)(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      '@zdrofibot/crypto':
+        specifier: workspace:*
+        version: link:../../libs/crypto
+      '@zdrofibot/db':
+        specifier: workspace:*
+        version: link:../../libs/db
+      '@zdrofibot/portal':
+        specifier: workspace:*
+        version: link:../../libs/portal
+      '@zdrofibot/scheduling':
+        specifier: workspace:*
+        version: link:../../libs/scheduling
+      '@zdrofibot/sessions':
+        specifier: workspace:*
+        version: link:../../libs/sessions
+      drizzle-orm:
+        specifier: ^0.45.4
+        version: 0.45.4(@electric-sql/pglite@0.5.15)(@types/pg@8.23.1)(pg@8.23.1)
       reflect-metadata:
         specifier: ^0.2.2
         version: 0.2.2
       rxjs:
         specifier: ^7.8.2
         version: 7.8.2
+      undici:
+        specifier: ^8.12.4
+        version: 8.12.4
+    devDependencies:
+      '@zdrofibot/mock-portal':
+        specifier: workspace:*
+        version: link:../../test/mock-portal
 
   apps/session-worker:
     dependencies:
@@ -243,6 +268,8 @@ importers:
       rxjs:
         specifier: ^7.8.2
         version: 7.8.2
+
+  libs/crypto: {}
 
   libs/db:
     dependencies:
@@ -291,6 +318,25 @@ importers:
       '@types/luxon':
         specifier: ^3.7.6
         version: 3.7.6
+
+  libs/sessions:
+    dependencies:
+      '@zdrofibot/crypto':
+        specifier: workspace:*
+        version: link:../crypto
+      '@zdrofibot/db':
+        specifier: workspace:*
+        version: link:../db
+      '@zdrofibot/portal':
+        specifier: workspace:*
+        version: link:../portal
+      drizzle-orm:
+        specifier: ^0.45.4
+        version: 0.45.4(@electric-sql/pglite@0.5.15)(@types/pg@8.23.1)(pg@8.23.1)
+    devDependencies:
+      '@electric-sql/pglite':
+        specifier: ^0.5.15
+        version: 0.5.15
 
   test/mock-portal:
     dependencies:

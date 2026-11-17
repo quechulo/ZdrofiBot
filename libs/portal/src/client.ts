@@ -101,8 +101,8 @@ export class PortalClient {
     }
   }
 
-  async checkSession(): Promise<SessionState> {
-    return classifySession(await this.request(portalPaths.sessionCheck));
+  async checkSession(timeoutMs?: number): Promise<SessionState> {
+    return classifySession(await this.request(portalPaths.sessionCheck, timeoutMs === undefined ? {} : { timeoutMs }));
   }
 
   async fetchSchedule(clubSlug: string): Promise<ScheduleItem[]> {

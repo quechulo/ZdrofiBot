@@ -1,0 +1,1 @@
+ALTER TABLE "registration_jobs" ADD COLUMN "posts_sent" integer DEFAULT 0 NOT NULL;

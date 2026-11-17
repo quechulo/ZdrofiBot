@@ -135,6 +135,8 @@ export const registrationJobs = pgTable(
     confirmedAt: moment("confirmed_at"),
     /** sent_at minus opens_at: how accurately the job fired. */
     sendLatencyMs: integer("send_latency_ms"),
+    /** Booking POSTs sent. The portal treats a repeat as a no-op, but each costs about 5 s. */
+    postsSent: integer("posts_sent").notNull().default(0),
     errorCode: text("error_code"),
     createdAt: createdAt(),
     updatedAt: moment("updated_at").notNull().defaultNow(),

@@ -12,6 +12,9 @@
     ".": {
       "types": "./src/index.ts",
       "default": "./dist/index.js"
+    },
+    "./testing": {
+      "types": "./src/testing.ts"
     }
   },
   "dependencies": {
