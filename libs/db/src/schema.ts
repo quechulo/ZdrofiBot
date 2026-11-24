@@ -79,6 +79,8 @@ export const secretBlobs = pgTable(
     nonce: bytea("nonce").notNull(),
     /** Each secret has its own data key, wrapped by KMS. */
     wrappedDek: bytea("wrapped_dek").notNull(),
+    /** Bumped on every write, so a worker never overwrites a newer login with older cookies. */
+    version: integer("version").notNull().default(1),
     updatedAt: moment("updated_at").notNull().defaultNow(),
   },
   (table) => [uniqueIndex("secret_blobs_account_kind").on(table.portalAccountId, table.kind)],
@@ -92,6 +94,32 @@ export const portalSessions = pgTable("portal_sessions", {
   lastOkAt: moment("last_ok_at"),
   failureCount: integer("failure_count").notNull().default(0),
   updatedAt: moment("updated_at").notNull().defaultNow(),
+});
+
+/**
+ * One row per session that ended, so the lifetime question can be answered from
+ * real data: it died somewhere between last_ok_at and ended_at.
+ */
+export const sessionEnds = pgTable(
+  "session_ends",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    portalAccountId: uuid("portal_account_id").notNull().references(() => portalAccounts.id, { onDelete: "cascade" }),
+    loggedInAt: moment("logged_in_at"),
+    lastOkAt: moment("last_ok_at"),
+    endedAt: moment("ended_at").notNull(),
+    reason: text("reason").notNull(),
+  },
+  (table) => [index("session_ends_account").on(table.portalAccountId, table.endedAt)],
+);
+
+/** One-time codes behind the Telegram Start link. Stored hashed. */
+export const telegramLinkCodes = pgTable("telegram_link_codes", {
+  codeHash: text("code_hash").primaryKey(),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  expiresAt: moment("expires_at").notNull(),
+  usedAt: moment("used_at"),
+  createdAt: createdAt(),
 });
 
 /** Worker-maintained copy of the schedule. The API never calls the portal. */

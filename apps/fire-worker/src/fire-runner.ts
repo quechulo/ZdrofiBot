@@ -32,6 +32,8 @@ interface Prepared {
   agent: Agent;
   jar: PortalCookieJar;
   initialState: string;
+  /** The stored session's version, so rotated cookies never overwrite a newer login. */
+  version: number;
   /** Null when no open class gave one, so the target's own page is read at T. */
   token: string | null;
 }
@@ -145,9 +147,9 @@ export class FireRunner {
     const { vault, store } = this.deps;
     const account = await vault.accountForUser(this.job.userId);
     if (!account) return "no-account";
-    const state = await vault.loadStorageState(account.id);
-    if (!state) return "no-session";
-    const jar = new PortalCookieJar(new URL(this.deps.portalOrigin).hostname, state);
+    const session = await vault.loadSession(account.id);
+    if (!session) return "no-session";
+    const jar = new PortalCookieJar(new URL(this.deps.portalOrigin).hostname, session.state);
     if (!jar.hasSession()) return "no-session";
 
     const agent = new Agent({
@@ -167,6 +169,7 @@ export class FireRunner {
       agent,
       jar,
       initialState: JSON.stringify(jar.toState()),
+      version: session.version,
       token: null,
     };
     const lost = (): PrepareFailure => {
@@ -345,18 +348,22 @@ export class FireRunner {
     const { vault } = this.deps;
     const account = await vault.accountForUser(this.job.userId);
     if (!account) return "no-account";
-    const state = await vault.loadStorageState(account.id);
-    if (!state) return "no-session";
-    const jar = new PortalCookieJar(new URL(this.deps.portalOrigin).hostname, state);
+    const session = await vault.loadSession(account.id);
+    if (!session) return "no-session";
+    const jar = new PortalCookieJar(new URL(this.deps.portalOrigin).hostname, session.state);
     const agent = new Agent({ connect: { timeout: this.t.connectTimeoutMs } });
     const client = new PortalClient({ userAgent: this.deps.userAgent, origin: this.deps.portalOrigin, jar, dispatcher: agent });
-    return { accountId: account.id, client, agent, jar, initialState: JSON.stringify(jar.toState()), token: null };
+    const initialState = JSON.stringify(jar.toState());
+    return { accountId: account.id, client, agent, jar, initialState, version: session.version, token: null };
   }
 
   /** A rotated SULUSESSID must be stored, or the next request sends a dead session. */
   private async saveRotatedCookies(prepared: Prepared): Promise<void> {
     const state = prepared.jar.toState();
-    if (JSON.stringify(state) !== prepared.initialState) await this.deps.vault.saveStorageState(prepared.accountId, state);
+    if (JSON.stringify(state) === prepared.initialState) return;
+    if (!(await this.deps.vault.saveStorageState(prepared.accountId, state, prepared.version))) {
+      this.deps.log.warn(`Job ${this.job.id}: a newer login was stored meanwhile, so rotated cookies were dropped`);
+    }
   }
 
   private async finish(result: JobResult): Promise<void> {

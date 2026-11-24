@@ -12,7 +12,13 @@
     "lint": "oxlint apps libs test",
     "test": "vitest run",
     "test:watch": "vitest",
-    "db:generate": "pnpm --filter @zdrofibot/db run generate"
+    "db:generate": "pnpm --filter @zdrofibot/db run generate",
+    "dev:db": "docker compose -f compose.dev.yaml up -d --wait",
+    "dev:db:down": "docker compose -f compose.dev.yaml down",
+    "db:migrate": "pnpm --filter @zdrofibot/session-worker run cli migrate",
+    "cli": "pnpm --filter @zdrofibot/session-worker run cli",
+    "start:fire": "pnpm --filter @zdrofibot/fire-worker start",
+    "start:session": "pnpm --filter @zdrofibot/session-worker start"
   },
   "engines": {
     "node": ">=24"

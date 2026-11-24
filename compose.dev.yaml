@@ -1,0 +1,25 @@
+# Local Postgres for development. Production uses Neon.
+#   pnpm dev:db        start it
+#   pnpm db:migrate    apply migrations
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: zdrofibot
+      POSTGRES_PASSWORD: zdrofibot
+      POSTGRES_DB: zdrofibot
+    # Localhost only, on a port that won't clash with another Postgres.
+    ports:
+      - "127.0.0.1:54320:5432"
+    # Postgres 18 keeps its data in a versioned folder under /var/lib/postgresql,
+    # so the volume goes there, not on .../data as in older images.
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U zdrofibot"]
+      interval: 10s
+      timeout: 3s
+      retries: 15
+
+volumes:
+  pgdata:

@@ -1,5 +1,5 @@
 import os from "node:os";
-import { PORTAL_ORIGIN } from "@zdrofibot/portal";
+import { DEFAULT_USER_AGENT, PORTAL_ORIGIN } from "@zdrofibot/portal";
 
 /** Every duration the engine uses, so tests can run the same timeline in about a second. */
 export interface FireTimings {
@@ -77,9 +77,6 @@ export interface FireConfig {
   userAgent: string;
   timings: FireTimings;
 }
-
-const DEFAULT_USER_AGENT =
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36";
 
 function required(env: NodeJS.ProcessEnv, name: string): string {
   const value = env[name];

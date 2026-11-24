@@ -89,6 +89,8 @@ export class MockPortal {
 
   private readonly classes = new Map<number, MockClass>();
   private readonly sessions = new Map<string, MockSession>();
+  private readonly rotations = new Map<string, string>();
+  private anonymousCount = 0;
   private readonly now: () => number;
   private readonly server: http.Server;
 
@@ -120,6 +122,11 @@ export class MockPortal {
 
   endSession(cookieValue: string): void {
     this.sessions.delete(cookieValue);
+  }
+
+  /** The next response to this session moves it to a new cookie value, with Set-Cookie. */
+  rotateSession(cookieValue: string, nextValue: string): void {
+    this.rotations.set(cookieValue, nextValue);
   }
 
   isBooked(cookieValue: string, id: number): boolean {
@@ -182,8 +189,23 @@ export class MockPortal {
       at: this.now(),
     });
     const session = cookie ? this.sessions.get(cookie) : undefined;
+    let setCookie: string | undefined;
+    const rotated = cookie ? this.rotations.get(cookie) : undefined;
+    if (cookie && session && rotated) {
+      this.rotations.delete(cookie);
+      this.sessions.delete(cookie);
+      this.sessions.set(rotated, session);
+      setCookie = `SULUSESSID=${rotated}; path=/; secure; httponly; samesite=lax`;
+    } else if (cookie && !session) {
+      // Like the real portal: an ended session gets a new anonymous cookie on its next request.
+      setCookie = `SULUSESSID=anonymous-${++this.anonymousCount}; path=/; secure; httponly; samesite=lax`;
+    }
     const send = (html: string, status = 200) => {
-      response.writeHead(status, { "Content-Type": "text/html; charset=utf-8", Server: "mock-portal" });
+      response.writeHead(status, {
+        "Content-Type": "text/html; charset=utf-8",
+        Server: "mock-portal",
+        ...(setCookie ? { "Set-Cookie": setCookie } : {}),
+      });
       response.end(html);
     };
 
